@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Active-success?style=for-the-badge)](https://github.com)
 
-> **A modern, feature-rich Discord bot with 100+ commands, advanced automation, and comprehensive server management tools.**
+> **A modern, feature-rich Discord bot with 115+ commands, advanced automation, leveling, economy, and comprehensive server management tools.**
 
 ---
 
@@ -20,6 +20,10 @@
 - ✅ **Channel Automation** - Join-to-create, temp channels, stats channels
 - ✅ **Custom Commands** - Create your own server-specific commands
 - ✅ **Advanced Analytics** - Real-time server statistics and insights
+- ✅ **Leveling System** - XP, levels, and leaderboards with auto-tracking
+- ✅ **Economy System** - Virtual currency, daily rewards, and payments
+- ✅ **Anti-Raid Protection** - Automatic raid detection and prevention
+- ✅ **Reaction Roles** - Emoji-based role assignment system
 
 ---
 
@@ -105,6 +109,21 @@
 | `/nuke` | Clone and delete channel (clear all messages) |
 | `/autocategory` | Setup auto-category creation |
 
+### 💥 Insane Features
+| Command | Description |
+|---------|-------------|
+| `/reactionrole` | Setup reaction roles on any message with emoji reactions |
+| `/autopurge` | Auto-delete messages older than X days with interval |
+| `/antiraid` | Configure anti-raid protection with auto-kick/ban/alert |
+| `/rank` | Check your level, XP, and message count |
+| `/leaderboard` | View top 10 members by level, messages, or balance |
+| `/balance` | Check your cash and bank balance |
+| `/daily` | Claim your daily reward ($100-$500) |
+| `/pay` | Pay another user from your balance |
+| `/slowmode` | Set slowmode with optional auto-adjust |
+| `/roleall` | Give role to all members (filter: humans/bots/all) |
+| `/clearroles` | Remove all roles from a user |
+
 ---
 
 ## 🎨 Auto-Logging Events
@@ -129,6 +148,20 @@ The bot automatically logs **EVERYTHING** happening in your server:
 - Channel switches
 - Started/stopped streaming
 - Mute/unmute, deafen/undeafen
+
+### 🎮 Leveling & Economy
+- **XP System** - Automatic XP on messages (5-15 XP per message)
+- **Level Ups** - Automatic announcements when members level up
+- **Leaderboards** - Track top members by level, messages, or balance
+- **Economy** - Virtual currency with cash and bank storage
+- **Daily Rewards** - Random rewards ($100-$500)
+- **Payments** - Transfer money between users
+
+### 🛡️ Protection Systems
+- **Reaction Roles** - Auto-assign/remove roles on emoji reactions
+- **Anti-Raid** - Detect mass joins and auto-kick/ban/alert
+- **Auto-Purge** - Background task to delete old messages
+- **Mass Actions** - Role all members with filters
 
 ### 🎭 Role Events
 - Role created/deleted
@@ -348,11 +381,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### 🎯 Why Choose FbotDiscord?
 
-✅ **100+ Commands** - Everything you need in one bot  
+✅ **115+ Commands** - Everything you need in one bot  
 ✅ **Modern UI** - Buttons, dropdowns, modals, embeds  
 ✅ **Comprehensive Logging** - Never miss an event  
 ✅ **Channel Automation** - Dynamic voice channels, auto-stats  
 ✅ **Advanced Tracking** - Full user analytics and insights  
+✅ **Leveling System** - XP, ranks, and leaderboards  
+✅ **Economy System** - Currency, daily rewards, payments  
+✅ **Anti-Raid Protection** - Automatic raid detection  
+✅ **Reaction Roles** - Emoji-based role management  
 ✅ **Production Ready** - Error handling, logging, type hints  
 ✅ **Constantly Updated** - Modern Discord.py features  
 ✅ **Easy Setup** - One command logging setup  
@@ -370,6 +407,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 5. /channelstats members
 6. /starboard #starboard 3
 7. /ticket category:Support
+8. /antiraid enabled:True threshold:5 action:alert
 ```
 
 ### Moderate Your Server
@@ -385,6 +423,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 /poll "What should we add?" option1:"Games" option2:"Music"
 /giveaway prize:"Nitro" duration:1440 winners:3
 /suggest "Add a gaming category"
+/reactionrole message_id:123456 emoji:🎮 role:@Gamer
+```
+
+### Leveling & Economy
+```
+/rank - Check your stats
+/leaderboard level - See top members
+/balance - Check your balance
+/daily - Claim daily reward
+/pay @user 500 - Send money
 ```
 
 ---
@@ -444,10 +492,14 @@ Or DM the developer: `nai_dev`
 - [ ] Dashboard web interface
 - [ ] Database integration (PostgreSQL)
 - [ ] Music commands
-- [ ] Economy system
-- [ ] Leveling system
+- [x] Economy system ✅
+- [x] Leveling system ✅
 - [ ] Custom embeds designer
 - [ ] Multi-language support
+- [x] Anti-raid protection ✅
+- [x] Reaction role system ✅
+- [ ] Advanced AI moderation
+- [ ] Welcome image generation
 
 ---
 
