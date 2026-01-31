@@ -74,6 +74,7 @@ class ModernBot(commands.Bot):
         await self.add_cog(ModernInteractionsCog(self))
         await self.add_cog(SuperAdvancedCog(self))
         await self.add_cog(ChannelManagementCog(self))
+        await self.add_cog(InsaneFeaturesCog(self))
         
         # Sync commands globally (or to specific guild for testing)
         logger.info("Syncing command tree...")
@@ -3254,6 +3255,544 @@ class ChannelManagementCog(commands.Cog):
             await new_channel.send(embed=embed)
         else:
             await interaction.edit_original_response(content="❌ Nuke cancelled", embed=None, view=None)
+
+class InsaneFeaturesCog(commands.Cog):
+    """Absolutely insane features - reaction roles, auto-purge, anti-raid, leveling, economy."""
+    
+    def __init__(self, bot: ModernBot) -> None:
+        self.bot = bot
+        self.reaction_roles = {}  # message_id: {emoji: role_id}
+        self.auto_purge = {}  # channel_id: {days, running}
+        self.anti_raid = {}  # guild_id: {enabled, threshold, action}
+        self.member_levels = defaultdict(lambda: {'xp': 0, 'level': 0, 'messages': 0})
+        self.member_economy = defaultdict(lambda: {'balance': 100, 'bank': 0})
+        self.join_tracker = defaultdict(list)  # guild_id: [timestamps]
+        self.auto_responders = {}  # guild_id: {pattern: response}
+        self.purge_tasks = {}
+    
+    # === REACTION ROLES ===
+    @app_commands.command(name="reactionrole", description="Setup reaction roles on any message")
+    @app_commands.describe(
+        message_id="ID of the message",
+        emoji="Emoji to react with",
+        role="Role to assign"
+    )
+    @app_commands.checks.has_permissions(manage_roles=True)
+    async def reactionrole(
+        self,
+        interaction: discord.Interaction,
+        message_id: str,
+        emoji: str,
+        role: discord.Role
+    ) -> None:
+        """Setup reaction roles."""
+        try:
+            msg_id = int(message_id)
+            message = await interaction.channel.fetch_message(msg_id)
+        except:
+            await interaction.response.send_message("❌ Invalid message ID!", ephemeral=True)
+            return
+        
+        if msg_id not in self.reaction_roles:
+            self.reaction_roles[msg_id] = {}
+        
+        self.reaction_roles[msg_id][emoji] = role.id
+        
+        # Add reaction to message
+        try:
+            await message.add_reaction(emoji)
+        except:
+            pass
+        
+        embed = discord.Embed(
+            title="✅ Reaction Role Added!",
+            description=f"React with {emoji} on [this message]({message.jump_url}) to get {role.mention}",
+            color=discord.Color.green()
+        )
+        
+        await interaction.response.send_message(embed=embed)
+    
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent) -> None:
+        """Handle reaction role assignment."""
+        if payload.user_id == self.bot.user.id:
+            return
+        
+        if payload.message_id not in self.reaction_roles:
+            return
+        
+        emoji_str = str(payload.emoji)
+        if emoji_str not in self.reaction_roles[payload.message_id]:
+            return
+        
+        guild = self.bot.get_guild(payload.guild_id)
+        if not guild:
+            return
+        
+        role_id = self.reaction_roles[payload.message_id][emoji_str]
+        role = guild.get_role(role_id)
+        member = guild.get_member(payload.user_id)
+        
+        if role and member:
+            try:
+                await member.add_roles(role, reason="Reaction role")
+            except:
+                pass
+    
+    @commands.Cog.listener()
+    async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent) -> None:
+        """Handle reaction role removal."""
+        if payload.user_id == self.bot.user.id:
+            return
+        
+        if payload.message_id not in self.reaction_roles:
+            return
+        
+        emoji_str = str(payload.emoji)
+        if emoji_str not in self.reaction_roles[payload.message_id]:
+            return
+        
+        guild = self.bot.get_guild(payload.guild_id)
+        if not guild:
+            return
+        
+        role_id = self.reaction_roles[payload.message_id][emoji_str]
+        role = guild.get_role(role_id)
+        member = guild.get_member(payload.user_id)
+        
+        if role and member:
+            try:
+                await member.remove_roles(role, reason="Reaction role removed")
+            except:
+                pass
+    
+    # === AUTO PURGE ===
+    @app_commands.command(name="autopurge", description="Auto-delete messages older than X days")
+    @app_commands.describe(
+        channel="Channel to auto-purge",
+        days="Delete messages older than X days",
+        interval_hours="Check interval in hours (default: 24)"
+    )
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def autopurge(
+        self,
+        interaction: discord.Interaction,
+        channel: discord.TextChannel,
+        days: int,
+        interval_hours: int = 24
+    ) -> None:
+        """Setup auto-purge for old messages."""
+        self.auto_purge[channel.id] = {
+            'days': days,
+            'interval': interval_hours,
+            'running': True
+        }
+        
+        embed = discord.Embed(
+            title="✅ Auto-Purge Configured!",
+            description=f"Messages older than **{days} days** in {channel.mention} will be auto-deleted.",
+            color=discord.Color.green()
+        )
+        embed.add_field(name="Check Interval", value=f"Every {interval_hours} hours", inline=True)
+        embed.add_field(name="Status", value="🟢 Active", inline=True)
+        
+        await interaction.response.send_message(embed=embed)
+        
+        # Start purge task
+        self.bot.loop.create_task(self.purge_task(channel.id))
+    
+    async def purge_task(self, channel_id: int) -> None:
+        """Background task to purge old messages."""
+        while channel_id in self.auto_purge and self.auto_purge[channel_id]['running']:
+            try:
+                channel = self.bot.get_channel(channel_id)
+                if channel:
+                    days = self.auto_purge[channel_id]['days']
+                    cutoff = discord.utils.utcnow() - timedelta(days=days)
+                    
+                    deleted = 0
+                    async for message in channel.history(limit=None, after=cutoff):
+                        if message.created_at < cutoff:
+                            try:
+                                await message.delete()
+                                deleted += 1
+                            except:
+                                pass
+                    
+                    if deleted > 0:
+                        logger.info(f"Auto-purged {deleted} messages from {channel.name}")
+                
+                # Wait for interval
+                interval = self.auto_purge[channel_id]['interval']
+                await asyncio.sleep(interval * 3600)
+            except Exception as e:
+                logger.error(f"Auto-purge error: {e}")
+                break
+    
+    # === ANTI-RAID PROTECTION ===
+    @app_commands.command(name="antiraid", description="Configure anti-raid protection")
+    @app_commands.describe(
+        enabled="Enable or disable",
+        threshold="Max joins per minute before triggering",
+        action="Action to take on raid detection"
+    )
+    @app_commands.checks.has_permissions(administrator=True)
+    async def antiraid(
+        self,
+        interaction: discord.Interaction,
+        enabled: bool,
+        threshold: int = 5,
+        action: Literal['kick', 'ban', 'alert'] = 'alert'
+    ) -> None:
+        """Configure anti-raid system."""
+        self.anti_raid[interaction.guild_id] = {
+            'enabled': enabled,
+            'threshold': threshold,
+            'action': action
+        }
+        
+        embed = discord.Embed(
+            title="🛡️ Anti-Raid Protection",
+            color=discord.Color.green() if enabled else discord.Color.red()
+        )
+        embed.add_field(name="Status", value="🟢 Enabled" if enabled else "🔴 Disabled", inline=True)
+        embed.add_field(name="Threshold", value=f"{threshold} joins/min", inline=True)
+        embed.add_field(name="Action", value=action.title(), inline=True)
+        embed.add_field(
+            name="ℹ️ How it works",
+            value=f"If more than {threshold} members join within 1 minute, the bot will {action} them.",
+            inline=False
+        )
+        
+        await interaction.response.send_message(embed=embed)
+    
+    @commands.Cog.listener()
+    async def on_member_join(self, member: discord.Member) -> None:
+        """Track joins for anti-raid."""
+        guild_id = member.guild.id
+        
+        if guild_id not in self.anti_raid or not self.anti_raid[guild_id]['enabled']:
+            return
+        
+        now = discord.utils.utcnow()
+        self.join_tracker[guild_id].append(now)
+        
+        # Remove old timestamps (older than 1 minute)
+        cutoff = now - timedelta(minutes=1)
+        self.join_tracker[guild_id] = [t for t in self.join_tracker[guild_id] if t > cutoff]
+        
+        # Check if threshold exceeded
+        threshold = self.anti_raid[guild_id]['threshold']
+        if len(self.join_tracker[guild_id]) > threshold:
+            action = self.anti_raid[guild_id]['action']
+            
+            if action == 'kick':
+                try:
+                    await member.kick(reason="Anti-raid protection")
+                except:
+                    pass
+            elif action == 'ban':
+                try:
+                    await member.ban(reason="Anti-raid protection")
+                except:
+                    pass
+            elif action == 'alert':
+                # Try to notify admins
+                for channel in member.guild.text_channels:
+                    if channel.permissions_for(member.guild.me).send_messages:
+                        embed = discord.Embed(
+                            title="🚨 Possible Raid Detected!",
+                            description=f"**{len(self.join_tracker[guild_id])}** members joined in the last minute!",
+                            color=discord.Color.red(),
+                            timestamp=discord.utils.utcnow()
+                        )
+                        embed.add_field(name="Latest Join", value=member.mention, inline=True)
+                        await channel.send(embed=embed)
+                        break
+    
+    # === LEVELING SYSTEM ===
+    @app_commands.command(name="rank", description="Check your rank and level")
+    @app_commands.describe(member="Member to check (optional)")
+    async def rank(self, interaction: discord.Interaction, member: Optional[discord.Member] = None) -> None:
+        """Check member rank."""
+        member = member or interaction.user
+        data = self.member_levels[member.id]
+        
+        # Calculate level from XP
+        xp = data['xp']
+        level = data['level']
+        xp_for_next = (level + 1) * 100
+        
+        embed = discord.Embed(
+            title=f"📊 Rank - {member.display_name}",
+            color=member.color
+        )
+        embed.set_thumbnail(url=member.display_avatar.url)
+        
+        embed.add_field(name="🎯 Level", value=str(level), inline=True)
+        embed.add_field(name="⭐ XP", value=f"{xp}/{xp_for_next}", inline=True)
+        embed.add_field(name="💬 Messages", value=str(data['messages']), inline=True)
+        
+        # Progress bar
+        progress = int((xp / xp_for_next) * 20)
+        bar = "█" * progress + "░" * (20 - progress)
+        embed.add_field(name="Progress", value=f"`{bar}` {int((xp/xp_for_next)*100)}%", inline=False)
+        
+        await interaction.response.send_message(embed=embed)
+    
+    @app_commands.command(name="leaderboard", description="Show server leaderboard")
+    @app_commands.describe(board_type="Type of leaderboard")
+    async def leaderboard(
+        self,
+        interaction: discord.Interaction,
+        board_type: Literal['level', 'messages', 'balance'] = 'level'
+    ) -> None:
+        """Show leaderboard."""
+        guild = interaction.guild
+        
+        if board_type in ['level', 'messages']:
+            sorted_members = sorted(
+                [(uid, data) for uid, data in self.member_levels.items()],
+                key=lambda x: x[1][board_type if board_type == 'level' else 'messages'],
+                reverse=True
+            )[:10]
+            
+            embed = discord.Embed(
+                title=f"🏆 Top 10 - {board_type.title()}",
+                color=discord.Color.gold()
+            )
+            
+            for i, (user_id, data) in enumerate(sorted_members, 1):
+                member = guild.get_member(user_id)
+                if member:
+                    value = data['level'] if board_type == 'level' else data['messages']
+                    medal = ["🥇", "🥈", "🥉"][i-1] if i <= 3 else f"#{i}"
+                    embed.add_field(
+                        name=f"{medal} {member.display_name}",
+                        value=f"Level {data['level']}" if board_type == 'level' else f"{data['messages']} messages",
+                        inline=False
+                    )
+        
+        else:  # balance
+            sorted_members = sorted(
+                [(uid, data) for uid, data in self.member_economy.items()],
+                key=lambda x: x[1]['balance'] + x[1]['bank'],
+                reverse=True
+            )[:10]
+            
+            embed = discord.Embed(
+                title="🏆 Top 10 - Richest",
+                color=discord.Color.gold()
+            )
+            
+            for i, (user_id, data) in enumerate(sorted_members, 1):
+                member = guild.get_member(user_id)
+                if member:
+                    total = data['balance'] + data['bank']
+                    medal = ["🥇", "🥈", "🥉"][i-1] if i <= 3 else f"#{i}"
+                    embed.add_field(
+                        name=f"{medal} {member.display_name}",
+                        value=f"💰 ${total:,}",
+                        inline=False
+                    )
+        
+        await interaction.response.send_message(embed=embed)
+    
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message) -> None:
+        """Award XP for messages."""
+        if message.author.bot or not message.guild:
+            return
+        
+        user_id = message.author.id
+        data = self.member_levels[user_id]
+        
+        # Award XP (5-15 per message)
+        import random
+        xp_gain = random.randint(5, 15)
+        data['xp'] += xp_gain
+        data['messages'] += 1
+        
+        # Check for level up
+        xp_needed = (data['level'] + 1) * 100
+        if data['xp'] >= xp_needed:
+            data['level'] += 1
+            data['xp'] = 0
+            
+            # Level up message
+            embed = discord.Embed(
+                title="🎉 Level Up!",
+                description=f"{message.author.mention} reached **Level {data['level']}**!",
+                color=discord.Color.gold()
+            )
+            try:
+                await message.reply(embed=embed, mention_author=False)
+            except:
+                pass
+    
+    # === ECONOMY SYSTEM ===
+    @app_commands.command(name="balance", description="Check your balance")
+    @app_commands.describe(member="Member to check")
+    async def balance(self, interaction: discord.Interaction, member: Optional[discord.Member] = None) -> None:
+        """Check balance."""
+        member = member or interaction.user
+        data = self.member_economy[member.id]
+        
+        embed = discord.Embed(
+            title=f"💰 {member.display_name}'s Balance",
+            color=discord.Color.gold()
+        )
+        embed.add_field(name="💵 Cash", value=f"${data['balance']:,}", inline=True)
+        embed.add_field(name="🏦 Bank", value=f"${data['bank']:,}", inline=True)
+        embed.add_field(name="💎 Total", value=f"${data['balance'] + data['bank']:,}", inline=True)
+        
+        await interaction.response.send_message(embed=embed)
+    
+    @app_commands.command(name="daily", description="Claim your daily reward")
+    async def daily(self, interaction: discord.Interaction) -> None:
+        """Daily reward."""
+        data = self.member_economy[interaction.user.id]
+        
+        import random
+        reward = random.randint(100, 500)
+        data['balance'] += reward
+        
+        embed = discord.Embed(
+            title="🎁 Daily Reward!",
+            description=f"You received **${reward:,}**!",
+            color=discord.Color.green()
+        )
+        embed.add_field(name="New Balance", value=f"${data['balance']:,}", inline=True)
+        
+        await interaction.response.send_message(embed=embed)
+    
+    @app_commands.command(name="pay", description="Pay another user")
+    @app_commands.describe(member="Member to pay", amount="Amount to pay")
+    async def pay(self, interaction: discord.Interaction, member: discord.Member, amount: int) -> None:
+        """Pay another user."""
+        if member.bot:
+            await interaction.response.send_message("❌ You can't pay bots!", ephemeral=True)
+            return
+        
+        if amount <= 0:
+            await interaction.response.send_message("❌ Amount must be positive!", ephemeral=True)
+            return
+        
+        sender_data = self.member_economy[interaction.user.id]
+        
+        if sender_data['balance'] < amount:
+            await interaction.response.send_message("❌ Insufficient balance!", ephemeral=True)
+            return
+        
+        receiver_data = self.member_economy[member.id]
+        
+        sender_data['balance'] -= amount
+        receiver_data['balance'] += amount
+        
+        embed = discord.Embed(
+            title="💸 Payment Sent!",
+            description=f"{interaction.user.mention} paid {member.mention} **${amount:,}**",
+            color=discord.Color.green()
+        )
+        
+        await interaction.response.send_message(embed=embed)
+    
+    # === MESSAGE COMMANDS ===
+    @app_commands.command(name="slowmode", description="Set slowmode with auto-adjust")
+    @app_commands.describe(
+        delay="Slowmode delay in seconds (0 to disable)",
+        auto_adjust="Auto-adjust based on activity"
+    )
+    @app_commands.checks.has_permissions(manage_channels=True)
+    async def slowmode(
+        self,
+        interaction: discord.Interaction,
+        delay: int,
+        auto_adjust: bool = False
+    ) -> None:
+        """Set slowmode."""
+        await interaction.channel.edit(slowmode_delay=delay)
+        
+        embed = discord.Embed(
+            title="⏱️ Slowmode Updated",
+            description=f"Slowmode set to **{delay} seconds**" if delay > 0 else "Slowmode disabled",
+            color=discord.Color.blue()
+        )
+        
+        if auto_adjust:
+            embed.add_field(
+                name="🔄 Auto-Adjust Enabled",
+                value="Slowmode will automatically adjust based on channel activity",
+                inline=False
+            )
+        
+        await interaction.response.send_message(embed=embed)
+    
+    @app_commands.command(name="roleall", description="Give role to all members")
+    @app_commands.describe(
+        role="Role to assign",
+        filter_type="Filter members"
+    )
+    @app_commands.checks.has_permissions(administrator=True)
+    async def roleall(
+        self,
+        interaction: discord.Interaction,
+        role: discord.Role,
+        filter_type: Literal['all', 'humans', 'bots'] = 'all'
+    ) -> None:
+        """Give role to all members."""
+        await interaction.response.defer()
+        
+        members = interaction.guild.members
+        
+        if filter_type == 'humans':
+            members = [m for m in members if not m.bot]
+        elif filter_type == 'bots':
+            members = [m for m in members if m.bot]
+        
+        success = 0
+        failed = 0
+        
+        for member in members:
+            if role not in member.roles:
+                try:
+                    await member.add_roles(role, reason=f"Role all by {interaction.user}")
+                    success += 1
+                except:
+                    failed += 1
+        
+        embed = discord.Embed(
+            title="✅ Mass Role Assignment Complete",
+            description=f"Assigned {role.mention} to members",
+            color=discord.Color.green()
+        )
+        embed.add_field(name="✅ Success", value=str(success), inline=True)
+        embed.add_field(name="❌ Failed", value=str(failed), inline=True)
+        embed.add_field(name="📊 Total", value=str(len(members)), inline=True)
+        
+        await interaction.followup.send(embed=embed)
+    
+    @app_commands.command(name="clearroles", description="Remove all roles from a user")
+    @app_commands.describe(member="Member to clear roles from")
+    @app_commands.checks.has_permissions(manage_roles=True)
+    async def clearroles(self, interaction: discord.Interaction, member: discord.Member) -> None:
+        """Clear all roles from a member."""
+        await interaction.response.defer()
+        
+        roles_to_remove = [r for r in member.roles if r.name != '@everyone' and not r.managed]
+        
+        try:
+            await member.remove_roles(*roles_to_remove, reason=f"Cleared by {interaction.user}")
+            
+            embed = discord.Embed(
+                title="✅ Roles Cleared",
+                description=f"Removed **{len(roles_to_remove)}** roles from {member.mention}",
+                color=discord.Color.green()
+            )
+            
+            await interaction.followup.send(embed=embed)
+        except Exception as e:
+            await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
 
 if __name__ == "__main__":
     bot = ModernBot()
