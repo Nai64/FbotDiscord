@@ -165,7 +165,7 @@ The bot automatically logs **EVERYTHING** happening in your server:
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/FbotDiscord.git
+   git clone https://github.com/Nai64/FbotDiscord.git
    cd FbotDiscord
    ```
 
@@ -334,7 +334,7 @@ Contributions are welcome! Here's how:
 
 ## 🐛 Bug Reports & Feature Requests
 
-Found a bug or have an idea? [Open an issue](https://github.com/yourusername/FbotDiscord/issues)!
+Found a bug or have an idea? [Open an issue](https://github.com/Nai64/FbotDiscord/issues)!
 
 ---
 
@@ -393,7 +393,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 Need help? Join our support server: [Discord Server Link](#)
 
-Or DM the developer: `YourUsername#0000`
+Or DM the developer: `nai_dev`
 
 ---
 
@@ -416,9 +416,9 @@ Or DM the developer: `YourUsername#0000`
 
 <div align="center">
 
-### Made with ❤️ by [YourName]
+### Made with ❤️ by Nai
 
-**[⭐ Star this repo](https://github.com/yourusername/FbotDiscord)** • **[🐛 Report Bug](https://github.com/yourusername/FbotDiscord/issues)** • **[✨ Request Feature](https://github.com/yourusername/FbotDiscord/issues)**
+**[⭐ Star this repo](https://github.com/Nai64/FbotDiscord)** • **[🐛 Report Bug](https://github.com/yourusername/Nai64/issues)** • **[✨ Request Feature](https://github.com/yourusername/Nai64/issues)**
 
 </div>
 
