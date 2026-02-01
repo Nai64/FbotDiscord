@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1>Welcome back, {{ user.username }}! 👋</h1>
+        <p>Manage your servers and configure FbotDiscord</p>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <i class="fas fa-server"></i>
+            <div>
+                <h3 id="total-guilds">-</h3>
+                <p>Total Servers</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <i class="fas fa-users"></i>
+            <div>
+                <h3 id="total-users">-</h3>
+                <p>Total Users</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <i class="fas fa-hashtag"></i>
+            <div>
+                <h3 id="total-channels">-</h3>
+                <p>Total Channels</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <i class="fas fa-tachometer-alt"></i>
+            <div>
+                <h3 id="bot-latency">-</h3>
+                <p>Bot Latency</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="servers-section">
+        <h2><i class="fas fa-server"></i> Your Servers</h2>
+        
+        {% if guilds %}
+        <div class="servers-grid">
+            {% for guild in guilds %}
+            <a href="{{ url_for('server_dashboard', guild_id=guild.id) }}" class="server-card">
+                {% if guild.icon %}
+                <img src="https://cdn.discordapp.com/icons/{{ guild.id }}/{{ guild.icon.value }}.png" alt="{{ guild.name }}">
+                {% else %}
+                <div class="server-icon-placeholder">{{ guild.name[0] }}</div>
+                {% endif %}
+                <div class="server-info">
+                    <h3>{{ guild.name }}</h3>
+                    <p>
+                        {% if guild.owner %}
+                        <i class="fas fa-crown"></i> Owner
+                        {% else %}
+                        <i class="fas fa-user"></i> Member
+                        {% endif %}
+                    </p>
+                </div>
+                <i class="fas fa-arrow-right server-arrow"></i>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-inbox"></i>
+            <h3>No Servers Found</h3>
+            <p>FbotDiscord is not in any of your servers yet.</p>
+            <a href="https://discord.com/api/oauth2/authorize?client_id={{ bot.user.id }}&permissions=8&scope=bot%20applications.commands" class="btn-primary" target="_blank">
+                <i class="fas fa-plus"></i> Add to Server
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Fetch live stats
+async function loadStats() {
+    try {
+        const response = await fetch('/api/stats');
+        const stats = await response.json();
+        
+        document.getElementById('total-guilds').textContent = stats.guilds;
+        document.getElementById('total-users').textContent = stats.users.toLocaleString();
+        document.getElementById('total-channels').textContent = stats.channels.toLocaleString();
+        document.getElementById('bot-latency').textContent = stats.latency + 'ms';
+    } catch (error) {
+        console.error('Failed to load stats:', error);
+    }
+}
+
+loadStats();
+setInterval(loadStats, 5000); // Update every 5 seconds
+</script>
+{% endblock %}

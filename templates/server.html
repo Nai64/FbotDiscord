@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+
+{% block title %}{{ guild.name }} - Dashboard{% endblock %}
+
+{% block content %}
+<div class="server-dashboard">
+    <div class="server-header">
+        <div class="server-header-left">
+            {% if guild.icon %}
+            <img src="{{ guild.icon.url }}" alt="{{ guild.name }}" class="server-icon-large">
+            {% else %}
+            <div class="server-icon-placeholder-large">{{ guild.name[0] }}</div>
+            {% endif %}
+            <div>
+                <h1>{{ guild.name }}</h1>
+                <p>{{ guild.member_count }} members</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="overview">
+            <i class="fas fa-chart-bar"></i> Overview
+        </button>
+        <button class="tab-btn" data-tab="members">
+            <i class="fas fa-users"></i> Members
+        </button>
+        <button class="tab-btn" data-tab="settings">
+            <i class="fas fa-cog"></i> Settings
+        </button>
+        <button class="tab-btn" data-tab="logs">
+            <i class="fas fa-file-alt"></i> Logs
+        </button>
+    </div>
+
+    <!-- Overview Tab -->
+    <div class="tab-content active" id="overview">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <i class="fas fa-users"></i>
+                <div>
+                    <h3 id="server-members">{{ guild.member_count }}</h3>
+                    <p>Members</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-user"></i>
+                <div>
+                    <h3 id="server-humans">-</h3>
+                    <p>Humans</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-robot"></i>
+                <div>
+                    <h3 id="server-bots">-</h3>
+                    <p>Bots</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-circle text-green"></i>
+                <div>
+                    <h3 id="server-online">-</h3>
+                    <p>Online</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-card">
+                <h3><i class="fas fa-hashtag"></i> Channels</h3>
+                <div class="info-stats">
+                    <div>
+                        <span id="server-text-channels">-</span> Text
+                    </div>
+                    <div>
+                        <span id="server-voice-channels">-</span> Voice
+                    </div>
+                    <div>
+                        <span id="server-categories">-</span> Categories
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <h3><i class="fas fa-shield-alt"></i> Roles</h3>
+                <div class="info-stats">
+                    <span id="server-roles">{{ guild.roles|length }}</span> Roles
+                </div>
+            </div>
+
+            <div class="info-card">
+                <h3><i class="fas fa-smile"></i> Emojis</h3>
+                <div class="info-stats">
+                    <span id="server-emojis">{{ guild.emojis|length }}</span> Emojis
+                </div>
+            </div>
+
+            <div class="info-card">
+                <h3><i class="fas fa-rocket"></i> Boosts</h3>
+                <div class="info-stats">
+                    <span id="server-boosts">{{ guild.premium_subscription_count }}</span> Boosts
+                    <br>
+                    Level <span id="server-boost-level">{{ guild.premium_tier }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <h3><i class="fas fa-chart-pie"></i> Member Status Distribution</h3>
+            <canvas id="statusChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Members Tab -->
+    <div class="tab-content" id="members">
+        <div class="members-list" id="members-list">
+            <p>Loading members...</p>
+        </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div class="tab-content" id="settings">
+        <div class="settings-section">
+            <h3><i class="fas fa-bell"></i> Auto-Welcome</h3>
+            <label>
+                <input type="checkbox" id="setting-autowelcome"> Enable Auto-Welcome
+            </label>
+            <input type="text" id="setting-welcome-message" placeholder="Welcome message...">
+        </div>
+
+        <div class="settings-section">
+            <h3><i class="fas fa-user-shield"></i> Auto-Moderation</h3>
+            <label>
+                <input type="checkbox" id="setting-automod"> Enable Auto-Moderation
+            </label>
+        </div>
+
+        <div class="settings-section">
+            <h3><i class="fas fa-shield-alt"></i> Anti-Raid</h3>
+            <label>
+                <input type="checkbox" id="setting-antiraid"> Enable Anti-Raid
+            </label>
+            <input type="number" id="setting-raid-threshold" placeholder="Threshold (joins/min)" min="1" value="5">
+        </div>
+
+        <button class="btn-primary" onclick="saveSettings()">
+            <i class="fas fa-save"></i> Save Settings
+        </button>
+    </div>
+
+    <!-- Logs Tab -->
+    <div class="tab-content" id="logs">
+        <div class="logs-container">
+            <div class="logs-filters">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="member">Members</button>
+                <button class="filter-btn" data-filter="message">Messages</button>
+                <button class="filter-btn" data-filter="moderation">Moderation</button>
+            </div>
+            <div class="logs-list" id="logs-list">
+                <p>Loading logs...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const guildId = "{{ guild.id }}";
+let statusChart = null;
+
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+        
+        // Load data for specific tabs
+        if (btn.dataset.tab === 'members') loadMembers();
+        if (btn.dataset.tab === 'logs') loadLogs();
+    });
+});
+
+// Load server stats
+async function loadServerStats() {
+    try {
+        const response = await fetch(`/api/server/${guildId}/stats`);
+        const stats = await response.json();
+        
+        document.getElementById('server-humans').textContent = stats.members.humans;
+        document.getElementById('server-bots').textContent = stats.members.bots;
+        document.getElementById('server-online').textContent = stats.members.online;
+        document.getElementById('server-text-channels').textContent = stats.channels.text;
+        document.getElementById('server-voice-channels').textContent = stats.channels.voice;
+        document.getElementById('server-categories').textContent = stats.channels.categories;
+        
+        // Update chart
+        updateStatusChart(stats.members);
+    } catch (error) {
+        console.error('Failed to load server stats:', error);
+    }
+}
+
+function updateStatusChart(members) {
+    const ctx = document.getElementById('statusChart').getContext('2d');
+    
+    if (statusChart) {
+        statusChart.destroy();
+    }
+    
+    statusChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Online', 'Idle', 'DND', 'Offline'],
+            datasets: [{
+                data: [members.online, members.idle, members.dnd, members.offline],
+                backgroundColor: ['#43b581', '#faa61a', '#f04747', '#747f8d']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+}
+
+async function loadMembers() {
+    try {
+        const response = await fetch(`/api/server/${guildId}/members`);
+        const data = await response.json();
+        
+        const membersList = document.getElementById('members-list');
+        membersList.innerHTML = data.members.map(member => `
+            <div class="member-item">
+                <img src="${member.avatar}" alt="${member.name}">
+                <div class="member-info">
+                    <h4>${member.display_name}</h4>
+                    <p>
+                        <span class="status-dot status-${member.status}"></span>
+                        ${member.status}
+                    </p>
+                </div>
+                <div class="member-roles">
+                    ${member.roles.slice(0, 3).map(r => `<span class="role-badge" style="background-color: ${r.color}">${r.name}</span>`).join('')}
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Failed to load members:', error);
+    }
+}
+
+async function loadLogs() {
+    try {
+        const response = await fetch(`/api/server/${guildId}/logs`);
+        const data = await response.json();
+        
+        const logsList = document.getElementById('logs-list');
+        logsList.innerHTML = data.logs.map(log => `
+            <div class="log-item log-${log.type}">
+                <span class="log-time">${new Date(log.timestamp).toLocaleString()}</span>
+                <span class="log-type">${log.type}</span>
+                <span class="log-details">${log.details}</span>
+            </div>
+        `).join('') || '<p>No logs available</p>';
+    } catch (error) {
+        console.error('Failed to load logs:', error);
+    }
+}
+
+async function saveSettings() {
+    // Get all settings
+    const settings = {
+        autowelcome: {
+            enabled: document.getElementById('setting-autowelcome').checked,
+            message: document.getElementById('setting-welcome-message').value
+        },
+        automod: {
+            enabled: document.getElementById('setting-automod').checked
+        },
+        antiraid: {
+            enabled: document.getElementById('setting-antiraid').checked,
+            threshold: parseInt(document.getElementById('setting-raid-threshold').value)
+        }
+    };
+    
+    try {
+        const response = await fetch(`/api/server/${guildId}/config`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(settings)
+        });
+        
+        const result = await response.json();
+        alert(result.message || 'Settings saved!');
+    } catch (error) {
+        console.error('Failed to save settings:', error);
+        alert('Failed to save settings');
+    }
+}
+
+// Initial load
+loadServerStats();
+setInterval(loadServerStats, 10000); // Update every 10 seconds
+</script>
+{% endblock %}

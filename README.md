@@ -13,6 +13,7 @@
 
 ### 🎯 **Core Features**
 - ✅ **Modern Slash Commands** - All commands use Discord's native `/` command system
+- ✅ **Web Dashboard** - Full-featured web interface with Discord OAuth2
 - ✅ **Hybrid Commands** - Support for both `/` and `!` prefix commands
 - ✅ **Interactive UI** - Buttons, dropdowns, modals, and context menus
 - ✅ **Auto-Logging** - Comprehensive event tracking and logging
@@ -124,6 +125,16 @@
 | `/roleall` | Give role to all members (filter: humans/bots/all) |
 | `/clearroles` | Remove all roles from a user |
 
+### 🌐 Web Dashboard
+| Feature | Description |
+|---------|-------------|
+| **Discord OAuth2** | Secure login with your Discord account |
+| **Live Stats** | Real-time server analytics and bot statistics |
+| **Server Management** | Configure settings through web interface |
+| **Member List** | View all server members with roles and status |
+| **Logs Viewer** | Browse server event logs in real-time |
+| **Auto-Refresh** | Stats update automatically every 5-10 seconds |
+
 ---
 
 ## 🎨 Auto-Logging Events
@@ -209,19 +220,66 @@ The bot automatically logs **EVERYTHING** happening in your server:
 
 3. **Configure environment**
    - Copy `.env.example` to `.env`
-   - Add your Discord bot token:
+   - Add your Discord bot token and OAuth2 credentials:
    ```env
    DISCORD_TOKEN=your_bot_token_here
+   DISCORD_CLIENT_ID=your_client_id_here
+   DISCORD_CLIENT_SECRET=your_client_secret_here
+   DISCORD_REDIRECT_URI=http://localhost:5000/callback
+   SECRET_KEY=your-random-secret-key
    ```
 
 4. **Run the bot**
+   
+   **Bot Only:**
    ```bash
    python bot.py
    ```
+   
+   **Bot + Web Dashboard:**
+   ```bash
+   python run.py
+   ```
+   Dashboard will be available at `http://localhost:5000`
 
 ---
 
 ## ⚙️ Configuration
+
+### 🌐 Setting Up Web Dashboard
+
+1. **Get OAuth2 Credentials**
+   - Go to [Discord Developer Portal](https://discord.com/developers/applications)
+   - Select your application
+   - Navigate to **OAuth2** → **General**
+   - Copy your **Client ID** and **Client Secret**
+   - Add redirect URL: `http://localhost:5000/callback`
+
+2. **Update .env file**
+   ```env
+   DISCORD_CLIENT_ID=your_client_id
+   DISCORD_CLIENT_SECRET=your_client_secret
+   DISCORD_REDIRECT_URI=http://localhost:5000/callback
+   SECRET_KEY=generate-a-random-secret-key
+   ```
+
+3. **Run with dashboard**
+   ```bash
+   python run.py
+   ```
+
+4. **Access dashboard**
+   - Open `http://localhost:5000`
+   - Click "Login with Discord"
+   - Manage your servers!
+
+### Dashboard Features
+- **📊 Live Statistics** - Real-time server and bot stats
+- **👥 Member Management** - View and search members
+- **⚙️ Settings Panel** - Configure auto-welcome, auto-mod, anti-raid
+- **📝 Logs Viewer** - Browse server event logs
+- **🎨 Beautiful UI** - Modern, responsive design
+- **🔄 Auto-Refresh** - Stats update every 5-10 seconds
 
 ### Setting Up Logging
 
@@ -344,12 +402,26 @@ Enable in Discord Developer Portal → Bot → Privileged Gateway Intents:
 
 ## 📦 Dependencies
 
+### Core
 ```txt
 discord.py>=2.0.0
 python-dotenv>=1.0.0
 ```
 
+### Web Dashboard
+```txt
+quart>=0.19.0
+quart-discord>=2.1.0
+aiohttp>=3.9.0
+hypercorn>=0.16.0
+```
+
 All dependencies are listed in `requirements.txt`.
+
+**Install all:**
+```bash
+pip install -r requirements.txt
+```
 
 ---
 
@@ -382,6 +454,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ### 🎯 Why Choose FbotDiscord?
 
 ✅ **115+ Commands** - Everything you need in one bot  
+✅ **Web Dashboard** - Beautiful interface with Discord OAuth2  
 ✅ **Modern UI** - Buttons, dropdowns, modals, embeds  
 ✅ **Comprehensive Logging** - Never miss an event  
 ✅ **Channel Automation** - Dynamic voice channels, auto-stats  
@@ -390,6 +463,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ✅ **Economy System** - Currency, daily rewards, payments  
 ✅ **Anti-Raid Protection** - Automatic raid detection  
 ✅ **Reaction Roles** - Emoji-based role management  
+✅ **Live Stats** - Real-time analytics and auto-refresh  
 ✅ **Production Ready** - Error handling, logging, type hints  
 ✅ **Constantly Updated** - Modern Discord.py features  
 ✅ **Easy Setup** - One command logging setup  
@@ -474,6 +548,12 @@ Or DM the developer: `nai_dev`
 
 ## 📸 Screenshots
 
+### Web Dashboard
+![Dashboard](screenshots/dashboard.png)
+
+### Server Management
+![Server Dashboard](screenshots/server.png)
+
 ### User Info Command
 ![User Info](screenshots/userinfo.png)
 
@@ -489,7 +569,7 @@ Or DM the developer: `nai_dev`
 
 ## 🔮 Roadmap
 
-- [ ] Dashboard web interface
+- [x] Dashboard web interface ✅
 - [ ] Database integration (PostgreSQL)
 - [ ] Music commands
 - [x] Economy system ✅
@@ -500,6 +580,7 @@ Or DM the developer: `nai_dev`
 - [x] Reaction role system ✅
 - [ ] Advanced AI moderation
 - [ ] Welcome image generation
+- [ ] Mobile app (React Native)
 
 ---
 

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="landing-hero">
+    <div class="hero-content">
+        <h1 class="hero-title">
+            <i class="fas fa-robot"></i>
+            FbotDiscord
+        </h1>
+        <p class="hero-subtitle">The Ultimate Discord Bot with 115+ Commands</p>
+        
+        <div class="hero-features">
+            <div class="feature-card">
+                <i class="fas fa-chart-line"></i>
+                <h3>Live Analytics</h3>
+                <p>Real-time server statistics and insights</p>
+            </div>
+            <div class="feature-card">
+                <i class="fas fa-shield-alt"></i>
+                <h3>Auto-Moderation</h3>
+                <p>Comprehensive auto-mod and anti-raid protection</p>
+            </div>
+            <div class="feature-card">
+                <i class="fas fa-users"></i>
+                <h3>Advanced Tracking</h3>
+                <p>Complete user activity and event logging</p>
+            </div>
+            <div class="feature-card">
+                <i class="fas fa-trophy"></i>
+                <h3>Leveling & Economy</h3>
+                <p>XP system, leaderboards, and virtual currency</p>
+            </div>
+        </div>
+
+        {% if bot %}
+        <div class="bot-stats">
+            <div class="stat-item">
+                <i class="fas fa-server"></i>
+                <div>
+                    <span class="stat-value">{{ bot.guilds|length }}</span>
+                    <span class="stat-label">Servers</span>
+                </div>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-users"></i>
+                <div>
+                    <span class="stat-value">{{ bot.guilds|sum(attribute='member_count') }}</span>
+                    <span class="stat-label">Users</span>
+                </div>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-terminal"></i>
+                <div>
+                    <span class="stat-value">115+</span>
+                    <span class="stat-label">Commands</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <a href="{{ url_for('login') }}" class="btn-hero">
+            <i class="fab fa-discord"></i> Login with Discord
+        </a>
+    </div>
+</div>
+{% endblock %}
