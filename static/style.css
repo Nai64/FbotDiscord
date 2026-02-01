@@ -34,20 +34,33 @@ body {
     overflow-x: hidden;
 }
 
-/* Animated background gradient */
+/* Animated topography background */
 body::before {
     content: '';
     position: fixed;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: 
-        radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.03) 0%, transparent 50%),
-        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.02) 0%, transparent 50%),
-        radial-gradient(circle at 40% 20%, rgba(255, 255, 255, 0.02) 0%, transparent 50%);
-    animation: gradientShift 20s ease infinite;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 255, 255, 0.03) 2px, rgba(255, 255, 255, 0.03) 4px),
+        repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(255, 255, 255, 0.03) 2px, rgba(255, 255, 255, 0.03) 4px),
+        repeating-radial-gradient(circle at 20% 30%, transparent 0, rgba(255, 255, 255, 0.02) 1px, transparent 2px, transparent 100px),
+        repeating-radial-gradient(circle at 80% 70%, transparent 0, rgba(255, 255, 255, 0.02) 1px, transparent 2px, transparent 100px),
+        repeating-radial-gradient(circle at 50% 50%, transparent 0, rgba(255, 255, 255, 0.01) 1px, transparent 2px, transparent 80px);
+    background-size: 50px 50px, 50px 50px, 200px 200px, 200px 200px, 150px 150px;
+    animation: topoMove 30s linear infinite;
     z-index: -1;
+    opacity: 0.6;
+}
+
+@keyframes topoMove {
+    0% {
+        background-position: 0 0, 0 0, 0 0, 100% 100%, 50% 50%;
+    }
+    100% {
+        background-position: 50px 50px, -50px -50px, 100px 100px, 0 0, 100% 0;
+    }
 }
 
 @keyframes gradientShift {
@@ -668,15 +681,15 @@ body::before {
 }
 
 .status-online {
-    background: var(--success);
+    background: var(--text);
 }
 
 .status-idle {
-    background: var(--warning);
+    background: var(--text-muted);
 }
 
 .status-dnd {
-    background: var(--danger);
+    background: var(--text-muted);
 }
 
 .status-offline {
@@ -918,15 +931,15 @@ body::before {
 
 /* Utilities */
 .text-green {
-    color: var(--success);
+    color: var(--text);
 }
 
 .text-red {
-    color: var(--danger);
+    color: var(--text);
 }
 
 .text-yellow {
-    color: var(--warning);
+    color: var(--text);
 }
 
 /* Responsive */

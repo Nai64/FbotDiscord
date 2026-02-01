@@ -220,12 +220,25 @@ function updateStatusChart(members) {
             labels: ['Online', 'Idle', 'DND', 'Offline'],
             datasets: [{
                 data: [members.online, members.idle, members.dnd, members.offline],
-                backgroundColor: ['#43b581', '#faa61a', '#f04747', '#747f8d']
+                backgroundColor: ['#ffffff', '#cccccc', '#999999', '#555555'],
+                borderColor: '#000000',
+                borderWidth: 2
             }]
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#ffffff',
+                        font: {
+                            family: 'Montserrat',
+                            size: 12
+                        }
+                    }
+                }
+            }
         }
     });
 }
@@ -247,7 +260,7 @@ async function loadMembers() {
                     </p>
                 </div>
                 <div class="member-roles">
-                    ${member.roles.slice(0, 3).map(r => `<span class="role-badge" style="background-color: ${r.color}">${r.name}</span>`).join('')}
+                    ${member.roles.slice(0, 3).map(r => `<span class="role-badge" style="background-color: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2)">${r.name}</span>`).join('')}
                 </div>
             </div>
         `).join('');
