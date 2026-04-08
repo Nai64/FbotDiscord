@@ -1,6 +1,7 @@
 import os
 import logging
 import asyncio
+import random
 from typing import Optional, Literal, Dict, List
 from datetime import datetime, timedelta
 import discord
@@ -749,27 +750,41 @@ class AdvancedCog(commands.Cog):
     async def serveranalytics(self, interaction: discord.Interaction) -> None:
         """Advanced server analytics."""
         await interaction.response.defer()
-        
+
         guild = interaction.guild
-        
-        # Calculate statistics
+
+        # Calculate statistics - single pass through members
         total_members = guild.member_count
-        humans = len([m for m in guild.members if not m.bot])
-        bots = total_members - humans
-        online = len([m for m in guild.members if m.status != discord.Status.offline])
+        humans = 0
+        bots = 0
+        online = 0
         
+        for member in guild.members:
+            if not member.bot:
+                humans += 1
+            else:
+                bots += 1
+            
+            if member.status != discord.Status.offline:
+                online += 1
+
         # Role statistics
         roles_with_members = [(role, len(role.members)) for role in guild.roles if len(role.members) > 0]
         roles_with_members.sort(key=lambda x: x[1], reverse=True)
-        
+
         # Channel statistics
         text_channels = len(guild.text_channels)
         voice_channels = len(guild.voice_channels)
         categories = len(guild.categories)
-        
+
         # Emoji statistics
-        static_emojis = len([e for e in guild.emojis if not e.animated])
-        animated_emojis = len([e for e in guild.emojis if e.animated])
+        static_emojis = 0
+        animated_emojis = 0
+        for emoji in guild.emojis:
+            if emoji.animated:
+                animated_emojis += 1
+            else:
+                static_emojis += 1
         
         embed = discord.Embed(
             title=f"📊 {guild.name} Analytics",
@@ -860,20 +875,20 @@ class AdvancedCog(commands.Cog):
     async def membercount(self, interaction: discord.Interaction) -> None:
         """Show member count."""
         guild = interaction.guild
-        
+
         total = guild.member_count
-        humans = len([m for m in guild.members if not m.bot])
+        humans = sum(1 for m in guild.members if not m.bot)
         bots = total - humans
-        
+
         embed = discord.Embed(
             title=f"👥 {guild.name} Member Count",
             color=discord.Color.blue()
         )
-        
+
         # Create a simple text-based bar
         human_bar = "█" * int((humans/total) * 20)
         bot_bar = "█" * int((bots/total) * 20)
-        
+
         embed.add_field(
             name=f"👤 Humans: {humans}",
             value=f"`{human_bar}` {humans/total*100:.1f}%",
@@ -885,7 +900,7 @@ class AdvancedCog(commands.Cog):
             inline=False
         )
         embed.add_field(name="📊 Total", value=str(total), inline=False)
-        
+
         await interaction.response.send_message(embed=embed)
 
 class TrackingCog(commands.Cog):
@@ -1149,14 +1164,23 @@ class TrackingCog(commands.Cog):
     async def serverstats(self, interaction: discord.Interaction) -> None:
         """Real-time server statistics."""
         await interaction.response.defer()
-        
+
         guild = interaction.guild
-        
-        # Calculate real-time stats
+
+        # Single pass through members for all stats
         now = discord.utils.utcnow()
-        online = len([m for m in guild.members if m.status != discord.Status.offline])
-        in_voice = len([m for m in guild.members if m.voice])
-        streaming = len([m for m in guild.members if m.voice and m.voice.self_stream])
+        online = 0
+        in_voice = 0
+        streaming = 0
+        
+        for member in guild.members:
+            if member.status != discord.Status.offline:
+                online += 1
+            if member.voice:
+                in_voice += 1
+                if member.voice.self_stream:
+                    streaming += 1
+        
         boosters = len(guild.premium_subscribers)
         
         embed = discord.Embed(
@@ -1768,13 +1792,6 @@ class AutoLoggerCog(commands.Cog):
         )
         
         await self.send_log(thread.guild.id, 'channels', embed)
-    
-    # === REACTION EVENTS ===
-    @commands.Cog.listener()
-    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent) -> None:
-        """Log reactions on important messages."""
-        # Only log in specific scenarios (you can customize this)
-        pass
     
     # === BULK DELETE ===
     @commands.Cog.listener()
@@ -2471,7 +2488,6 @@ class SuperAdvancedCog(commands.Cog):
             
             transcript_text = '\n'.join(content)
         else:
-            import json
             transcript_data = []
             for msg in messages:
                 transcript_data.append({
@@ -2483,22 +2499,21 @@ class SuperAdvancedCog(commands.Cog):
                     'attachments': [att.url for att in msg.attachments]
                 })
             transcript_text = json.dumps(transcript_data, indent=2)
-        
+
         # Save to file
         filename = f"transcript_{interaction.channel.name}_{discord.utils.utcnow().strftime('%Y%m%d_%H%M%S')}.{'txt' if format_type == 'text' else 'json'}"
-        
+
         with open(filename, 'w', encoding='utf-8') as f:
             f.write(transcript_text)
-        
+
         with open(filename, 'rb') as f:
             file = discord.File(f, filename=filename)
             await interaction.followup.send(
                 content=f"📄 Exported {len(messages)} messages",
                 file=file
             )
-        
+
         # Clean up
-        import os
         os.remove(filename)
     
     # === SCHEDULED MESSAGES ===
@@ -2599,15 +2614,14 @@ class SuperAdvancedCog(commands.Cog):
                 })
         
         # Save to file
-        import json
         filename = f"backup_{guild.name}_{discord.utils.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
-        
+
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(backup_data, f, indent=2)
-        
+
         with open(filename, 'rb') as f:
             file = discord.File(f, filename=filename)
-            
+
             embed = discord.Embed(
                 title="💾 Server Backup Created!",
                 description=f"Backup includes:\n"
@@ -2616,11 +2630,10 @@ class SuperAdvancedCog(commands.Cog):
                            f"• **{len(backup_data['categories'])}** categories",
                 color=discord.Color.green()
             )
-            
+
             await interaction.followup.send(embed=embed, file=file)
-        
+
         # Clean up
-        import os
         os.remove(filename)
     
     # === MASS ACTIONS ===
@@ -3604,12 +3617,11 @@ class InsaneFeaturesCog(commands.Cog):
         """Award XP for messages."""
         if message.author.bot or not message.guild:
             return
-        
+
         user_id = message.author.id
         data = self.member_levels[user_id]
-        
+
         # Award XP (5-15 per message)
-        import random
         xp_gain = random.randint(5, 15)
         data['xp'] += xp_gain
         data['messages'] += 1
@@ -3653,8 +3665,7 @@ class InsaneFeaturesCog(commands.Cog):
     async def daily(self, interaction: discord.Interaction) -> None:
         """Daily reward."""
         data = self.member_economy[interaction.user.id]
-        
-        import random
+
         reward = random.randint(100, 500)
         data['balance'] += reward
         

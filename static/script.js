@@ -1,5 +1,11 @@
 // FbotDiscord Dashboard JavaScript
 
+// Load server stats (placeholder - implement based on your API)
+function loadServerStats() {
+    // This function should fetch and update server statistics
+    // Implementation depends on your API endpoints
+}
+
 // Auto-refresh stats
 function startAutoRefresh() {
     setInterval(() => {

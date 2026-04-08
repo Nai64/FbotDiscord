@@ -4,14 +4,11 @@ Modern web interface with Discord OAuth2, live stats, and server management.
 """
 
 import os
-import asyncio
-from typing import Optional, Dict, Any
 from datetime import datetime
 from quart import Quart, render_template, redirect, url_for, session, request, jsonify
 from quart_discord import DiscordOAuth2Session, requires_authorization, Unauthorized
 import discord
 from discord.ext import commands
-from collections import defaultdict
 
 # Dashboard configuration
 app = Quart(__name__)
@@ -24,7 +21,7 @@ app.config["DISCORD_BOT_TOKEN"] = os.getenv("DISCORD_TOKEN")
 discord_oauth = DiscordOAuth2Session(app)
 
 # Global bot instance (will be set by main bot)
-bot_instance: Optional[commands.Bot] = None
+bot_instance: commands.Bot | None = None
 
 def set_bot_instance(bot: commands.Bot):
     """Set the bot instance for the dashboard."""
@@ -114,24 +111,39 @@ async def api_server_stats(guild_id: int):
     guild = bot_instance.get_guild(guild_id) if bot_instance else None
     if not guild:
         return jsonify({"error": "Server not found"}), 404
+
+    # Single pass through members for all stats
+    members = list(guild.members)
+    status_counts = {'online': 0, 'idle': 0, 'dnd': 0, 'offline': 0, 'bots': 0, 'humans': 0}
     
-    # Count by status
-    online = sum(1 for m in guild.members if m.status == discord.Status.online)
-    idle = sum(1 for m in guild.members if m.status == discord.Status.idle)
-    dnd = sum(1 for m in guild.members if m.status == discord.Status.dnd)
-    offline = sum(1 for m in guild.members if m.status == discord.Status.offline)
-    
+    for member in members:
+        # Count status
+        if member.status == discord.Status.online:
+            status_counts['online'] += 1
+        elif member.status == discord.Status.idle:
+            status_counts['idle'] += 1
+        elif member.status == discord.Status.dnd:
+            status_counts['dnd'] += 1
+        else:
+            status_counts['offline'] += 1
+        
+        # Count bot/human
+        if member.bot:
+            status_counts['bots'] += 1
+        else:
+            status_counts['humans'] += 1
+
     stats = {
         "name": guild.name,
         "icon": str(guild.icon.url) if guild.icon else None,
         "members": {
             "total": guild.member_count,
-            "online": online,
-            "idle": idle,
-            "dnd": dnd,
-            "offline": offline,
-            "bots": sum(1 for m in guild.members if m.bot),
-            "humans": sum(1 for m in guild.members if not m.bot)
+            "online": status_counts['online'],
+            "idle": status_counts['idle'],
+            "dnd": status_counts['dnd'],
+            "offline": status_counts['offline'],
+            "bots": status_counts['bots'],
+            "humans": status_counts['humans']
         },
         "channels": {
             "total": len(guild.channels),
@@ -145,7 +157,7 @@ async def api_server_stats(guild_id: int):
         "boost_level": guild.premium_tier,
         "created_at": guild.created_at.isoformat()
     }
-    
+
     return jsonify(stats)
 
 @app.route("/api/server/<int:guild_id>/members")
